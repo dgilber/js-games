@@ -1,0 +1,16 @@
+
+.sliding-puzzle {
+    background-color: #666;
+    display: inline-block;
+    width: 90px;
+    height: 90px;
+    position: relative;
+}
+
+.sliding-puzzle button {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 30px;
+    height: 30px;
+}

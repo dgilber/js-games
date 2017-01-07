@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<script type="text/javascript" src="../../lib/jquery-1.11.1.js"></script>
+<script type="text/javascript" src="../../lib/underscore.js"></script>
+<script type="text/javascript" src="../../utils/number.js"></script>
+<link type="text/css" rel="stylesheet" href="slidingpuzzle.css" />
+<script type="text/javascript" src="slidingpuzzle.js"></script>
+
+<style type="text/css">
+
+    #games_goes_here {
+        display: inline-block;
+        min-width: 400px;
+        vertical-align: top;
+    }
+
+    #ctrls {
+        display: inline-block;
+        vertical-align: top;
+    }
+
+</style>
+
+<script type="text/javascript">
+
+    var _game = null;
+
+    function _reset () {
+        var dim = parseInt($('#board_dim').val(), 10);
+        _game.reset(dim)
+    }
+
+</script>
+
+</head>
+
+<body>
+
+<div id="games_goes_here"></div>
+
+<div id="ctrls">
+    <div>
+        <label>
+            Dimension:
+            <select id="board_dim">
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+            </select>
+        </label>
+        <button type="button" onclick="_reset()">Reset</button>
+    </div>
+</div>
+
+<script type="text/javascript">
+
+(function ($) {
+
+    _game = new Games.SlidingPuzzle();
+    _game.appendTo($('#games_goes_here'))
+         .reset();
+    
+    
+
+})(jQuery);
+</script>
+</body>
+</html>
