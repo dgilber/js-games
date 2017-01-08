@@ -28,9 +28,9 @@
 
     /**
      * Returns `arg` if it's an integer; throws a TypeError otherwise.
-     * @param {Integer} arg - Argument to be validated.
+     * @param {int} arg - Argument to be validated.
      * @param {string} [name] - Name given to the argument.
-     * @returns {Integer} `arg`
+     * @returns {int} `arg`
      * @throws TypeError - If `arg` is not an integer.
      * @method
      */
@@ -80,9 +80,9 @@
 
         /**
          * Returns `arg` if it's an integer; throws a TypeError otherwise.
-         * @param {Integer} arg - Argument to be validated.
+         * @param {int} arg - Argument to be validated.
          * @param {string} [name] - Name given to the argument.
-         * @returns {Integer} `arg`
+         * @returns {int} `arg`
          * @throws TypeError - If `arg` is not an integer.
          * @method
          */
@@ -90,11 +90,11 @@
 
         /**
          * Returns `arg` if it's an integer between `min` and `max`; throws a TypeError otherwise.
-         * @param {Integer} arg - Argument to be validated.
-         * @param {Integer} min - Lowest acceptable value.
-         * @param {Integer} max - Highest acceptable value.
+         * @param {int} arg - Argument to be validated.
+         * @param {int} min - Lowest acceptable value.
+         * @param {int} max - Highest acceptable value.
          * @param {string} [name] - Name given to the argument.
-         * @returns {Integer} `arg`
+         * @returns {int} `arg`
          * @throws TypeError - If `arg` is not an integer between `min` and `max`.
          */
         requireIntegerBetween: function (arg, min, max, name) {
@@ -110,9 +110,9 @@
 
         /**
          * Generates a random integer between `min` and `max` (inclusive).
-         * @param {Integer} min
-         * @param {Integer} max
-         * @returns {Integer} Random integer between `min` and `max` (inclusive).
+         * @param {int} min
+         * @param {int} max
+         * @returns {int} Random integer between `min` and `max` (inclusive).
          * @throws TypeError - If `min` or `max` are not integers.
          */
         randomInteger: function (min, max) {
@@ -124,4 +124,4 @@
         }
     });
 
-})(window);
+})(this);

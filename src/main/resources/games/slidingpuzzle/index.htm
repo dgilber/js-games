@@ -5,14 +5,17 @@
 <script type="text/javascript" src="../../lib/jquery-1.11.1.js"></script>
 <script type="text/javascript" src="../../lib/underscore.js"></script>
 <script type="text/javascript" src="../../utils/number.js"></script>
+<script type="text/javascript" src="../../utils/keyboard.js"></script>
 <link type="text/css" rel="stylesheet" href="slidingpuzzle.css" />
 <script type="text/javascript" src="slidingpuzzle.js"></script>
 
 <style type="text/css">
 
     #games_goes_here {
+        position: relative;
         display: inline-block;
         min-width: 400px;
+        min-height: 400px;
         vertical-align: top;
     }
 
@@ -22,18 +25,6 @@
     }
 
 </style>
-
-<script type="text/javascript">
-
-    var _game = null;
-
-    function _reset () {
-        var dim = parseInt($('#board_dim').val(), 10);
-        _game.reset(dim)
-    }
-
-</script>
-
 </head>
 
 <body>
@@ -48,21 +39,48 @@
                 <option value="3">3</option>
                 <option value="4">4</option>
                 <option value="5">5</option>
+                <option value="6">6</option>
             </select>
         </label>
-        <button type="button" onclick="_reset()">Reset</button>
     </div>
+    <div>
+        <label>
+            Animation speed:
+            <input type="range" id="speed" min="0" max="1000" step="50"/>
+        </label>
+    </div>
+    <div></div>
+</div>
+
+<div style="font-style: italic;">
+    Tap a button to move it to the free spot, or use arrows to move a button
+    in the direction of the arrow.
 </div>
 
 <script type="text/javascript">
 
 (function ($) {
 
-    _game = new Games.SlidingPuzzle();
-    _game.appendTo($('#games_goes_here'))
-         .reset();
-    
-    
+    var game  = (new Games.SlidingPuzzle()).appendTo($('#games_goes_here')),
+        dim   = $('#board_dim'),
+        speed = $('#speed');
+
+    function toInt (s) {
+        return parseInt(s, 10);
+    }
+
+    function reset () {
+        game.reset(toInt(dim.val()));
+    }
+
+    reset();
+
+    dim.on('change', reset);
+
+    speed.val(1000 - game.speed())
+         .on('change', function () {
+             game.speed(1000 - toInt(speed.val()))
+         });
 
 })(jQuery);
 </script>
