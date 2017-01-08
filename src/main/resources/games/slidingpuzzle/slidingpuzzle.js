@@ -130,7 +130,7 @@ var Games = (Games || {});
 
         var size = _boardSize(dim);
         if (board.length !== size)
-            throw new Error("board has length " + board.length + " but should be " + size);
+            throw new Error("board has length " + board.length + ", should be " + size);
 
         var max     = size - 1,
             checked = [];
@@ -209,7 +209,6 @@ var Games = (Games || {});
             .width(boardWH)
             .height(boardWH)
             .css({
-                top:  Math.max(0, (container.height() / 2) - (boardWH / 2)),
                 left: Math.max(0, (container.width()  / 2) - (boardWH / 2))
             });
 
@@ -338,6 +337,8 @@ var Games = (Games || {});
             _animateButtonTo(puzzle, id, free, puzzle._animSpeed);
 
             _setSolved(puzzle);
+
+            puzzle._chg();
         }
     }
 
@@ -440,6 +441,7 @@ var Games = (Games || {});
 
         _animateButtonTo(puzzle, id, free, puzzle._animSpeed);
         _setSolved(puzzle);
+        puzzle._chg();
 
         return true;
     }
@@ -482,6 +484,9 @@ var Games = (Games || {});
         /** @type {int} */
         this._animSpeed = 250;  // default speed
 
+        /** @type {function} */
+        this._chg = _.noop;
+
         _paint(this);
     }
     
@@ -502,33 +507,17 @@ var Games = (Games || {});
         /**
          * Restarts the game.
          * @param {int} [dim] - New dimension, 3-5.
-         * @param {int[]} [board] - Array indicating where each button is on the board.
-         *        If not provided, a random board is generated.
-         *        If provided, the board must contain dim^2, non-repeating, within-range integers.
          * @returns {Games.SlidingPuzzle}
          */
-        reset: function (dim, board) {
+        reset: function (dim) {
 
-            var numArgs = arguments.length,
-                d       = this._dim,
-                b       = null;
+            var d = this._dim;
 
-            if (numArgs > 0) {
-
-                requireIntBetween(dim, 3, 15, "dim");
-
-                d = dim;
-
-                if (numArgs > 1)
-                    b = _validBoard(d, board);
-
-            }
-
-            if (b === null)
-                b = _newBoard(d);
+            if (arguments.length > 0)
+                d = requireIntBetween(dim, 3, 15, "dim");
 
             this._dim = d;
-            this._board = b;
+            this._board = _newBoard(d);
 
             _paint(this);
 
@@ -557,6 +546,42 @@ var Games = (Games || {});
                 requireIntBetween(animDuration, 0, 1000, 'animDuration');
 
                 this._animSpeed = animDuration;
+                return this;
+            }
+        },
+
+        /**
+         * Sets a listener for monitoring changes made by user.
+         * @param {function} callback
+         * @returns {Games.SlidingPuzzle}
+         */
+        change: function (callback) {
+
+            if (typeof callback !== "function")
+                throw new TypeError("callback: Function");
+
+            this._chg = callback;
+            return this;
+        },
+
+        /**
+         * Gets or sets the board.
+         * @param {int[]} [board] - Array indicating where each button is on the board;
+         *        must contain dim^2, non-repeating, within-range integers.
+         * @returns {(int[]|Games.SlidingPuzzle)}
+         */
+        layout: function (board) {
+
+            if (arguments.length < 1)
+                return this._board.slice(0);  // protective copy
+
+            else {
+
+                // Make protective copy
+                this._board = _validBoard(this._dim, board).slice(0);
+
+                _paint(this);
+
                 return this;
             }
         }

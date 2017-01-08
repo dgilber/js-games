@@ -45,14 +45,14 @@
     /**
      * Throws an error.
      * @param {function} ctor - Error constructor (Error, TypeError, ReferenceError, etc.)
-     * @param {string} expectedDataType - Expected data-type.
+     * @param {string} msg - Error message.
      * @param {?string} [name] - Primary name given to the argument.
      * @param {string} fallbackName - Fallback name given to the argument.
      * @private
      */
-    function _throw (ctor, expectedDataType, name, fallbackName) {
+    function _throw (ctor, msg, name, fallbackName) {
 
-        var err = (((typeof name === "string") ? name : fallbackName) + ": " + expectedDataType);
+        var err = (((typeof name === "string") ? name : fallbackName) + ": " + msg);
         throw new ctor(err);
     }
 
@@ -103,7 +103,7 @@
 
             if (   arg < min
                 || arg > max )
-                _throw(Error, "Integer out of range " + min + "-" + max, name, "arg");
+                _throw(Error, "Integer out of range " + min + "-" + max + ": " + arg, name, "arg");
 
             return arg;
         },

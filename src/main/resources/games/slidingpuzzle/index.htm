@@ -15,7 +15,6 @@
         position: relative;
         display: inline-block;
         min-width: 400px;
-        min-height: 400px;
         vertical-align: top;
     }
 
@@ -24,17 +23,34 @@
         vertical-align: top;
     }
 
+    #ctrls > div {
+        margin-bottom: 30px;
+    }
+
+    #ctrls label > span {
+        font-weight: bold;
+    }
+
 </style>
 </head>
 
 <body>
+
+<div>
+    <button type="button" id="new_game">New Game</button>
+    <button type="button" id="restart_game">Restart</button>
+</div>
+<div style="font-style: italic; margin-bottom: 30px;">
+    Tap a button to move it to the free spot, or use arrows to move a button
+    in the direction of the arrow.
+</div>
 
 <div id="games_goes_here"></div>
 
 <div id="ctrls">
     <div>
         <label>
-            Dimension:
+            <span>Dimension</span><br />
             <select id="board_dim">
                 <option value="3">3</option>
                 <option value="4">4</option>
@@ -45,16 +61,17 @@
     </div>
     <div>
         <label>
-            Animation speed:
+            <span>Animation speed</span><br />
             <input type="range" id="speed" min="0" max="1000" step="50"/>
         </label>
     </div>
-    <div></div>
-</div>
-
-<div style="font-style: italic;">
-    Tap a button to move it to the free spot, or use arrows to move a button
-    in the direction of the arrow.
+    <div>
+        <label>
+            <span>Layout</span><br />
+            <input type="text" id="state"/>
+            <button type="button" id="layout_setter">Set</button>
+        </label>
+    </div>
 </div>
 
 <script type="text/javascript">
@@ -63,24 +80,42 @@
 
     var game  = (new Games.SlidingPuzzle()).appendTo($('#games_goes_here')),
         dim   = $('#board_dim'),
-        speed = $('#speed');
+        speed = $('#speed'),
+        state = $('#state'),
+        initialLayout;
 
     function toInt (s) {
         return parseInt(s, 10);
     }
 
+    function showState () {
+        state.val(game.layout().join(','));
+    }
+
     function reset () {
         game.reset(toInt(dim.val()));
+        showState();
+        initialLayout = game.layout();
     }
 
     reset();
 
     dim.on('change', reset);
+    $('#new_game').on('click', reset);
+    $('#restart_game').on('click', function () {
+        game.layout(initialLayout);
+        showState();
+    });
 
     speed.val(1000 - game.speed())
          .on('change', function () {
              game.speed(1000 - toInt(speed.val()))
          });
+
+    $('#layout_setter').on('click', function () {
+        game.layout(_.map(state.val().split(/\s*,\s*/), toInt));
+    });
+    game.change(showState);
 
 })(jQuery);
 </script>
