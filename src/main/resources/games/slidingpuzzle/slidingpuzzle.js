@@ -60,32 +60,93 @@ var Games = (Games || {});
     }
 
     /**
-     * Creates a new game board.
-     * @param {int} dim - dimension
-     * @returns {int[]} Array of integers in random order, from 0 to (dim - 1).
+     * @param {*} item
+     * @param {Array} array
+     * @returns {int} Index of item in array, -1 if not found.
      * @private
      */
-    function _newBoard (dim) {
+    function _indexOf (item, array) {
+        return array.indexOf(item);
+    }
 
-        var board;
-        do {
-            board = [];
-            var size   = _boardSize(dim),
-                values = [];
+    /**
+     * Remove item from array.
+     * @param {*} item
+     * @param {Array} array
+     * @returns {int} Index where item was found, or -1 if array was not modified.
+     * @private
+     */
+    function _removeItem (item, array) {
 
+        var idx = _indexOf(item, array);
+        if (idx >= 0)
+            array.splice(idx, 1);
 
-            for (var i = 0; i < size; i++)
-                values.push(i);
+        return idx;
+    }
 
-            for (var i = 0; i < size; i++) {
-                var r = NumberUtils.randomInteger(0, size - i - 1);
+    /**
+     * Switches values from idx1 and idx2 within the board.
+     * @param {int[]} board - Puzzle board.
+     * @param {int} idx1 - Index of item 1.
+     * @param {int} idx2 - Index of item 2.
+     * @private
+     */
+    function _switchPosition (board, idx1, idx2) {
 
-                board.push(values[r]);
-                values.splice(r, 1);
-            }
-        } while (_isSolved(board));  // Make sure we don't give users a done deal.
+        var tmp = board[idx1];
+        board[idx1] = board[idx2];
+        board[idx2] = tmp;
+    }
+
+    /**
+     * Shuffles the buttons.
+     * @param {Games.SlidingPuzzle} puzzle - The puzzle to shuffle.
+     * @returns {int[]} New board -array of integers in random order, from 0 to (dim^2 - 1).
+     * @private
+     */
+    function _shuffle (puzzle) {
+
+        var goal  = puzzle._goal,
+            board = goal.slice(0),
+            free  = _indexOf(0, board),  // Should always be board.length - 1
+            last  = -1;
+
+        for (var i = 0, numShuffles = goal.length * 2; i < numShuffles; i++) {
+
+            var movables = _getMovableIndices(board, puzzle._dim);
+
+            console.log("movables: [%s], last: [%d]", movables.join(','), last);
+            _removeItem(last, movables);
+
+            var moveIdx = movables[NumberUtils.randomInteger(0, movables.length - 1)];
+
+            _switchPosition(board, moveIdx, free);
+
+            last = free;
+            free = moveIdx;
+        }
 
         return board;
+    }
+
+    /**
+     * @param {int} dim
+     * @returns {int[]} The goal for a board of the given dimension, immutable.
+     * @private
+     */
+    function _newGoal (dim) {
+
+        var goal = [],
+            size = _boardSize(dim),
+            stop = size - 1;
+
+        for (var i = 0; i < stop; i++)
+            goal.push(i + 1);
+
+        goal.push(0);
+
+        return Object.freeze(goal);
     }
 
     /**
@@ -188,7 +249,7 @@ var Games = (Games || {});
      * @private
      */
     function _indexById (id, puzzle) {
-        return puzzle._board.indexOf(id);
+        return _indexOf(id, puzzle._board);
     }
 
     /**
@@ -331,8 +392,7 @@ var Games = (Games || {});
                 me   = _indexById(id, puzzle);
 
             // Move the button the the free spot.
-            puzzle._board[free] = id;
-            puzzle._board[me]   = 0;
+            _switchPosition(puzzle._board, free, me)
 
             _animateButtonTo(puzzle, id, free, puzzle._animSpeed);
 
@@ -349,46 +409,48 @@ var Games = (Games || {});
      * @private
      */
     function _canMove (id, puzzle) {
-        return _getMovables(puzzle).hasOwnProperty(id);
+        return _getMovableButtons(puzzle).hasOwnProperty(id);
     }
 
     /**
-     * Returns a list of buttons that are allowed to move to the free spot, indexed by IDs.
+     * Returns a map of buttons that are allowed to move to the free spot, indexed by IDs.
      * @param {Games.SlidingPuzzle} puzzle
      * @returns {Object.<int, jQuery>} List of movable buttons, indexed by IDs.
      * @private
      */
-    function _getMovables (puzzle) {
+    function _getMovableButtons (puzzle) {
 
-        var dim   = puzzle._dim,
-            max   = dim - 1,
-            free  = _indexById(0, puzzle),
-            freeY = _row(free, dim),
-            freeX = _col(free, dim),
-            list  = {};
+        return _.reduce(_getMovableIndices(puzzle._board, puzzle._dim), function (memo, idx) {
 
-        if (freeY > 0)   _addMovable(list, freeY - 1, freeX, puzzle);
-        if (freeY < max) _addMovable(list, freeY + 1, freeX, puzzle);
-        if (freeX > 0)   _addMovable(list, freeY, freeX - 1, puzzle);
-        if (freeX < max) _addMovable(list, freeY, freeX + 1, puzzle);
+            var id  = puzzle._board[idx],
+                btn = puzzle._btns[idx];
 
-        return list;
+            memo[id] = btn;
+
+            return memo;
+        }, {});
     }
 
     /**
-     * Adds a button to the index.
-     * @param {Object.<int, jQuery>} index
-     * @param {int} y
-     * @param {int} x
-     * @param {Games.SlidingPuzzle} puzzle
+     * @param {int[]} board
+     * @param {int} dim
+     * @returns {int[]} List of index positions within board that are movable.
      * @private
      */
-    function _addMovable (index, y, x, puzzle) {
+    function _getMovableIndices (board, dim) {
 
-        var idx = _indexByCoord(y, x, puzzle._dim),
-            id  = puzzle._board[idx];
+        var max   = dim - 1,
+            free  = _indexOf(0, board),
+            freeY = _row(free, dim),
+            freeX = _col(free, dim),
+            list  = [];
 
-        index[id] = puzzle._btns[idx];
+        if (freeY > 0)   list.push(_indexByCoord(freeY - 1, freeX, dim));
+        if (freeY < max) list.push(_indexByCoord(freeY + 1, freeX, dim));
+        if (freeX > 0)   list.push(_indexByCoord(freeY, freeX - 1, dim));
+        if (freeX < max) list.push(_indexByCoord(freeY, freeX + 1, dim));
+
+        return list;
     }
 
     /**
@@ -436,8 +498,7 @@ var Games = (Games || {});
             id = puzzle._board[me];
 
         // Move the button the the free spot.
-        puzzle._board[free] = id;
-        puzzle._board[me]   = 0;
+        _switchPosition(puzzle._board, free, me);
 
         _animateButtonTo(puzzle, id, free, puzzle._animSpeed);
         _setSolved(puzzle);
@@ -476,7 +537,10 @@ var Games = (Games || {});
             .on('keydown',   null,     this, _keydown);
 
         /** @type {int[]} */
-        this._board = _newBoard(this._dim);
+        this._goal = _newGoal(this._dim);
+
+        /** @type {int[]} */
+        this._board = _shuffle(this);
 
         /** @type {Array.<?jQuery>} */
         this._btns = [null];  // button[0] is null
@@ -503,6 +567,15 @@ var Games = (Games || {});
             this._top.appendTo(elm);
             return this;
         },
+
+        /**
+         * Puts focus on the puzzle, so keyboard events are captured.
+         * @returns {Games.SlidingPuzzle}
+         */
+        focus: function () {
+            this._top.focus();
+            return this;
+        },
         
         /**
          * Restarts the game.
@@ -511,13 +584,12 @@ var Games = (Games || {});
          */
         reset: function (dim) {
 
-            var d = this._dim;
+            if (arguments.length > 0) {
+                this._dim = requireIntBetween(dim, 3, 15, "dim");
+                this._goal = _newGoal(this._dim);
+            }
 
-            if (arguments.length > 0)
-                d = requireIntBetween(dim, 3, 15, "dim");
-
-            this._dim = d;
-            this._board = _newBoard(d);
+            this._board = _shuffle(this);
 
             _paint(this);
 

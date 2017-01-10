@@ -4,7 +4,7 @@
 
 <script type="text/javascript" src="../../lib/jquery-1.11.1.js"></script>
 <script type="text/javascript" src="../../lib/underscore.js"></script>
-<script type="text/javascript" src="../../utils/number.js"></script>
+<script type="text/javascript" src="../../utils/numbers.js"></script>
 <script type="text/javascript" src="../../utils/keyboard.js"></script>
 <link type="text/css" rel="stylesheet" href="slidingpuzzle.css" />
 <script type="text/javascript" src="slidingpuzzle.js"></script>
@@ -96,6 +96,7 @@
         game.reset(toInt(dim.val()));
         showState();
         initialLayout = game.layout();
+        game.focus();
     }
 
     reset();
@@ -103,17 +104,20 @@
     dim.on('change', reset);
     $('#new_game').on('click', reset);
     $('#restart_game').on('click', function () {
-        game.layout(initialLayout);
+        game.layout(initialLayout)
+            .focus();
         showState();
     });
 
     speed.val(1000 - game.speed())
          .on('change', function () {
              game.speed(1000 - toInt(speed.val()))
+                 .focus();
          });
 
     $('#layout_setter').on('click', function () {
-        game.layout(_.map(state.val().split(/\s*,\s*/), toInt));
+        game.layout(_.map(state.val().split(/\s*,\s*/), toInt))
+            .focus();
     });
     game.change(showState);
 
