@@ -4,7 +4,8 @@
 
 <script type="text/javascript" src="../../lib/jquery-1.11.1.js"></script>
 <script type="text/javascript" src="../../lib/underscore.js"></script>
-<script type="text/javascript" src="../../utils/numbers.js"></script>
+<script type="text/javascript" src="../../utils/numberutils.js"></script>
+<script type="text/javascript" src="../../utils/arrayutils.js"></script>
 <script type="text/javascript" src="../../utils/keyboard.js"></script>
 <link type="text/css" rel="stylesheet" href="slidingpuzzle.css" />
 <script type="text/javascript" src="slidingpuzzle.js"></script>
@@ -50,12 +51,12 @@
 <div id="ctrls">
     <div>
         <label>
-            <span>Dimension</span><br />
+            <span>Grid size</span><br />
             <select id="board_dim">
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
+                <option value="3">3 x 3</option>
+                <option value="4">4 x 4</option>
+                <option value="5">5 x 5</option>
+                <option value="6">6 x 6</option>
             </select>
         </label>
     </div>
@@ -65,12 +66,25 @@
             <input type="range" id="speed" min="0" max="1000" step="50"/>
         </label>
     </div>
+
+    <div>
+        <label>
+            <span>Goal</span><br />
+            <input type="text" id="goal"/>
+            <button type="button" id="goal_setter">Set</button>
+        </label>
+    </div>
     <div>
         <label>
             <span>Layout</span><br />
             <input type="text" id="state"/>
             <button type="button" id="layout_setter">Set</button>
         </label>
+    </div>
+
+    <div>
+        <button type="button" id="shuffler">Shuffle</button>
+        <button type="button" id="resolver">Solve</button>
     </div>
 </div>
 
@@ -81,6 +95,7 @@
     var game  = (new Games.SlidingPuzzle()).appendTo($('#games_goes_here')),
         dim   = $('#board_dim'),
         speed = $('#speed'),
+        goal  = $('#goal'),
         state = $('#state'),
         initialLayout;
 
@@ -91,10 +106,14 @@
     function showState () {
         state.val(game.layout().join(','));
     }
+    function showGoal () {
+        goal.val(game.goal().join(','));
+    }
 
     function reset () {
         game.reset(toInt(dim.val()));
         showState();
+        showGoal();
         initialLayout = game.layout();
         game.focus();
     }
@@ -115,11 +134,22 @@
                  .focus();
          });
 
+    $('#goal_setter').on('click', function () {
+        game.goal(_.map(goal.val().split(/\s*,\s*/), toInt)).focus();
+    });
     $('#layout_setter').on('click', function () {
-        game.layout(_.map(state.val().split(/\s*,\s*/), toInt))
-            .focus();
+        game.layout(_.map(state.val().split(/\s*,\s*/), toInt)).focus();
     });
     game.change(showState);
+
+    $('#shuffler').on('click', function () {
+        game.shuffle().focus();
+    });
+    $('#resolver').on('click', function () {
+        game.solve().focus();
+    });
+
+    showGoal();
 
 })(jQuery);
 </script>

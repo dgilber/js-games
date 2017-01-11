@@ -27,6 +27,16 @@
     }
 
     /**
+     * @param {*} arg
+     * @param {int} min
+     * @returns {boolean} Whether `arg` is an integer no lower than `min`.
+     * @private
+     */
+    function _isIntMin (arg, min) {
+        return (_isInt(arg) && arg >= min);
+    }
+
+    /**
      * Returns `arg` if it's an integer; throws a TypeError otherwise.
      * @param {int} arg - Argument to be validated.
      * @param {string} [name] - Name given to the argument.
@@ -68,6 +78,22 @@
          * @method
          */
         isInteger: _isInt,
+
+        /**
+         * @param {*} arg
+         * @returns {boolean} Whether `arg` is a positive integer.
+         */
+        isPositiveInteger: function (arg) {
+            return _isIntMin(arg, 1);
+        },
+
+        /**
+         * @param {*} arg
+         * @returns {boolean} Whether `arg` is a non-negative integer (zero or higher).
+         */
+        isNonNegativeInteger: function (arg) {
+            return _isIntMin(arg, 0);
+        },
 
         /**
          * @param {*} arg - Value to confirm.

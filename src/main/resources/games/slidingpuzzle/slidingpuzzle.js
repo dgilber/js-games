@@ -1,7 +1,14 @@
 
 var Games = (Games || {});
 
-// TODO
+/**
+ * SlidingPuzzle is a game with a square layout containing an equal number of
+ * rows and columns. The puzzle's board contains `dimension ^ 2 - 1` tiles.
+ * The goal is for users to put the tiles in order, left-to-right, top-to-bottom,
+ * with the empty spot positioned at the bottom-right corner.
+ *
+ * This implementation supports auto-solving the puzzle.
+ */
 (function (root, $) {
 
     "use strict";
@@ -29,7 +36,7 @@ var Games = (Games || {});
     var BOARD_DIM = 3;
 
     /**
-     * Button dimensions, width and height, in pixels.
+     * Tile dimensions, width and height, in pixels.
      * @type {int}
      */
     var BUTTON_DIM = 60;  // Must match width and height in CSS.
@@ -57,6 +64,11 @@ var Games = (Games || {});
     /** @returns {int} Board size. */
     function _boardSize (dim) {
         return Math.pow(dim, 2);
+    }
+
+    /** @returns {int} Board dimension. */
+    function _boardDim (board) {
+        return Math.sqrt(board.length);
     }
 
     /**
@@ -90,6 +102,7 @@ var Games = (Games || {});
      * @param {int[]} board - Puzzle board.
      * @param {int} idx1 - Index of item 1.
      * @param {int} idx2 - Index of item 2.
+     * @returns {int[]} `board` for convenience.
      * @private
      */
     function _switchPosition (board, idx1, idx2) {
@@ -97,10 +110,12 @@ var Games = (Games || {});
         var tmp = board[idx1];
         board[idx1] = board[idx2];
         board[idx2] = tmp;
+
+        return board;
     }
 
     /**
-     * Shuffles the buttons.
+     * Shuffles the tiles.
      * @param {Games.SlidingPuzzle} puzzle - The puzzle to shuffle.
      * @returns {int[]} New board -array of integers in random order, from 0 to (dim^2 - 1).
      * @private
@@ -116,7 +131,7 @@ var Games = (Games || {});
 
             var movables = _getMovableIndices(board, puzzle._dim);
 
-            console.log("movables: [%s], last: [%d]", movables.join(','), last);
+            // console.log("movables: [%s], last: [%d]", movables.join(','), last);
             _removeItem(last, movables);
 
             var moveIdx = movables[NumberUtils.randomInteger(0, movables.length - 1)];
@@ -150,29 +165,157 @@ var Games = (Games || {});
     }
 
     /**
-     * @param {int[]} board
-     * @returns {boolean} Whether the given board is solved.
+     * @param {int[]} board - Board to validate.
+     * @param {int[]} goal - Goal to reach, array of equal or shorter length.
+     * @returns {boolean} Whether the board meets the goal.
      * @private
      */
-    function _isSolved (board) {
+    function _isSolved (board, goal) {
+        return ArrayUtils.startsWith(board, goal);
+    }
 
-        var last = board.length - 1;
+    /**
+     * Solves the puzzle with visual feedback.
+     * @param {Games.SlidingPuzzle} puzzle
+     * @private
+     */
+    function _solvePuzzle (puzzle) {
+        return _solveBoard(puzzle._board, puzzle._goal);
+    }
 
-        // Bottom-right space must be empty
-        if (board[last] !== 0)
-            return false;
+    /**
+     * Solves the board. This method modifies the given `board` argument.
+     * @param {int[]} board - Board to solve.
+     * @param {int[]} goal - Desired board layout.
+     * @returns {?(int[])} Solution to the puzzle, given as a list of index positions within
+     *           `board` to be moved, in that order.  May be null, but really shouldn't.
+     * @private
+     */
+    function _solveBoard (board, goal) {
 
-        var isSolved = true;
+        // FIXME - this is way too slow, effectively not working.
 
-        for ( var i = 0;
-                  i < last && isSolved;
-                  i++ ) {
+        var dim      = _boardDim(board),
+            solution = [];
 
-            if (board[i] !== i + 1)
-                isSolved = false;
+        for (var g = 0; g < goal.length; g++) {
+
+            var step = goal.slice(0, g + 1);
+
+            var path    = [],
+                actions = [],
+                wins    = [];
+
+            _tryAll(board, dim, step, actions, path, wins);
+
+            var win = _mostEfficient(wins);
+            if (win === null)
+                return null;  // We failed, back to the drawing board!
+
+            ArrayUtils.pushAll(solution, win);
+
+            board = _play(board, win);
         }
 
-        return isSolved;
+        return solution;
+    }
+
+    /**
+     * Recursive method reaches the desired goal by moving all movable pieces, evaluating
+     * all possible options.
+     *
+     * @param {int[]} board - Board as it stands right now.
+     * @param {int} dim - Board dimension.
+     * @param {int[]} goal - Goal to achieve.
+     * @param {int[]} actions - Tiles (indices) moved so far.
+     * @param {string[]} path - List of serialized boards that have lead us here.
+     * @param {int[][]} wins - List of winning scenarios encountered on this recursive journey.
+     * @private
+     */
+    function _tryAll (board, dim, goal, actions, path, wins) {
+
+        if (actions.length > 50)
+            return;  // Prevent stack-overflow error.
+
+        if (_isSolved(board, goal)) {
+            wins.push(actions);
+            return;
+        }
+
+        var serialized = _serializeBoard(board);
+        if (_indexOf(serialized, path) >= 0)
+            return;  // Prevent infinite loop
+
+        path.push(serialized);
+
+        var options = _getMovableIndices(board, dim);
+
+        for (var i = 0, len = options.length; i < len; i++) {
+
+            var tileIdx = options[i];
+
+            actions.push(tileIdx);
+            _tryAll(
+                _switchPosition(board.slice(0), tileIdx, _indexOf(0, board)),
+                dim,
+                goal,
+                actions,
+                path,
+                wins
+            );
+            actions.pop();
+        }
+        path.pop();
+    }
+
+    /**
+     * @param {int[][]} solutions
+     * @returns {?(int[])} Most efficient solution, may be null.
+     * @private
+     */
+    function _mostEfficient (solutions) {
+
+        var mostEfficient = null;
+
+        _.each(solutions, function (solution) {
+            if (   mostEfficient === null
+                || mostEfficient.length > solution ) {
+
+                mostEfficient = solution;
+            }
+
+        });
+
+        return mostEfficient;
+    }
+
+    /**
+     * Plays the steps to advance the board to the next goal.
+     * @param {int[]} board - Board to modify.
+     * @param {int[]} steps - Tile indices to be moved, in order.
+     * @returns {int[]} New, modified board.
+     * @private
+     */
+    function _play (board, steps) {
+
+        var newBoard = board.slice(0),
+            freeIdx  = _indexOf(0, newBoard);  // Track of tile-free index, for better performance.
+
+        for (var i = 0, len = steps.length; i < len; i++) {
+            _switchPosition(newBoard, steps[i], freeIdx);
+            freeIdx = steps[i];
+        }
+
+        return newBoard;
+    }
+
+    /**
+     * @param {int[]} board - Board to be serialized.
+     * @returns {string} Serialized board.
+     * @private
+     */
+    function _serializeBoard (board) {
+        return board.join(',');
     }
 
     /**
@@ -245,7 +388,7 @@ var Games = (Games || {});
     /**
      * @param {int} id
      * @param {Games.SlidingPuzzle} puzzle
-     * @returns {int} Index position of a button within the board array, -1 if `id` is invalid.
+     * @returns {int} Index position of a tile within the board array, -1 if `id` is invalid.
      * @private
      */
     function _indexById (id, puzzle) {
@@ -253,13 +396,16 @@ var Games = (Games || {});
     }
 
     /**
-     * Positions all buttons.
+     * Positions all tiles.
      * @param {Games.SlidingPuzzle} puzzle
+     * @returns {Games.SlidingPuzzle} `puzzle`
      * @private
      */
     function _paint (puzzle) {
 
-        _setNumButtons(puzzle);
+        _setSolved(puzzle);
+
+        _setNumTiles(puzzle);
 
         var board     = puzzle._board,
             size      = board.length,
@@ -277,8 +423,10 @@ var Games = (Games || {});
 
             var id = board[i];
             if (id > 0)
-                _animateButtonTo(puzzle, id, i, RESET_SPEED);
+                _animateTileTo(puzzle, id, i, RESET_SPEED, _.noop);
         }
+
+        return puzzle;
     }
 
     /**
@@ -291,14 +439,15 @@ var Games = (Games || {});
     }
 
     /**
-     * Animates a button to the position on the board.
+     * Animates a tile to the position on the board.
      * @param {Games.SlidingPuzzle} puzzle
      * @param {int} btnId
-     * @param {int} indexInBoard - Where the button is moving.
+     * @param {int} indexInBoard - Where the tile is moving.
      * @param {int} speed - Animation speed
+     * @param {function} [callback] - Function to execute after the animation completes.
      * @private
      */
-    function _animateButtonTo (puzzle, btnId, indexInBoard, speed) {
+    function _animateTileTo (puzzle, btnId, indexInBoard, speed, callback) {
 
         puzzle._btns[btnId]
             .stop()
@@ -307,17 +456,18 @@ var Games = (Games || {});
                     left: _col(indexInBoard, puzzle._dim) * BUTTON_DIM
                 },
                 speed,
-                EASING
+                EASING,
+                callback
             );
     }
 
     /**
-     * Creates or removes buttons as needed.
+     * Creates or removes tiles as needed.
      * @param {Games.SlidingPuzzle} puzzle
-     * @returns {Array.<?jQuery>} List of buttons.
+     * @returns {Array.<?jQuery>} List of tiles.
      * @private
      */
-    function _setNumButtons (puzzle) {
+    function _setNumTiles (puzzle) {
 
         var btns    = puzzle._btns,
             size    = puzzle._board.length,
@@ -341,19 +491,19 @@ var Games = (Games || {});
         }
 
         _.each(btns.splice(size), function (btn) {
-            _removeButton(btn, puzzle._animSpeed);
+            _removeTile(btn, puzzle._animSpeed);
         });
 
         return btns;
     }
 
     /**
-     * Removes a button from the board.
-     * @param {jQuery} btn - Button to remove.
+     * Removes a tile from the board.
+     * @param {jQuery} btn - Tile to remove.
      * @param {int} duration - Animation duration.
      * @private
      */
-    function _removeButton (btn, duration) {
+    function _removeTile (btn, duration) {
 
         btn.animate(
             { opacity: 0 },
@@ -366,16 +516,16 @@ var Games = (Games || {});
     }
 
     /**
-     * Listener for *click* event of buttons on the board.
+     * Listener for *click* event of tiles on the board.
      * @param {jQuery.Event} event
      * @private
      */
-    function _buttonClick (event) {
+    function _tileClick (event) {
         _move($(event.target));
     }
 
     /**
-     * Attempts to move the given button to the available spot, returns true if it succeeds.
+     * Attempts to move the given tile to the available spot, returns true if it succeeds.
      * @param {jQuery} btn
      * @returns {boolean}
      * @private
@@ -391,10 +541,10 @@ var Games = (Games || {});
             var free = _indexById(0,  puzzle),
                 me   = _indexById(id, puzzle);
 
-            // Move the button the the free spot.
+            // Move the tile the the free spot.
             _switchPosition(puzzle._board, free, me)
 
-            _animateButtonTo(puzzle, id, free, puzzle._animSpeed);
+            _animateTileTo(puzzle, id, free, puzzle._animSpeed, _.noop);
 
             _setSolved(puzzle);
 
@@ -405,20 +555,20 @@ var Games = (Games || {});
     /**
      * @param {int} id
      * @param {Games.SlidingPuzzle} puzzle
-     * @returns {boolean} Whether the given button (id) is allowed to move to the free spot.
+     * @returns {boolean} Whether the given tile (id) is allowed to move to the free spot.
      * @private
      */
     function _canMove (id, puzzle) {
-        return _getMovableButtons(puzzle).hasOwnProperty(id);
+        return _getMovableTiles(puzzle).hasOwnProperty(id);
     }
 
     /**
-     * Returns a map of buttons that are allowed to move to the free spot, indexed by IDs.
+     * Returns a map of tiles that are allowed to move to the free spot, indexed by IDs.
      * @param {Games.SlidingPuzzle} puzzle
-     * @returns {Object.<int, jQuery>} List of movable buttons, indexed by IDs.
+     * @returns {Object.<int, jQuery>} List of movable tiles, indexed by IDs.
      * @private
      */
-    function _getMovableButtons (puzzle) {
+    function _getMovableTiles (puzzle) {
 
         return _.reduce(_getMovableIndices(puzzle._board, puzzle._dim), function (memo, idx) {
 
@@ -474,11 +624,11 @@ var Games = (Games || {});
     }
 
     /**
-     * Attempts to move a button based on arrow key.
-     * @param {int} y - Row offset from the free spot pointing to the button to move.
-     * @param {int} x - Column offset from the free spot pointing to the button to move.
+     * Attempts to move a tile based on arrow key.
+     * @param {int} y - Row offset from the free spot pointing to the tile to move.
+     * @param {int} x - Column offset from the free spot pointing to the tile to move.
      * @param {Games.SlidingPuzzle} puzzle
-     * @returns {boolean} Whether a button moved.
+     * @returns {boolean} Whether a tile moved.
      * @private
      */
     function _applyKey (y, x, puzzle) {
@@ -497,10 +647,10 @@ var Games = (Games || {});
         var me = _indexByCoord(btnY, btnX, dim),
             id = puzzle._board[me];
 
-        // Move the button the the free spot.
+        // Move the tile the the free spot.
         _switchPosition(puzzle._board, free, me);
 
-        _animateButtonTo(puzzle, id, free, puzzle._animSpeed);
+        _animateTileTo(puzzle, id, free, puzzle._animSpeed, _.noop);
         _setSolved(puzzle);
         puzzle._chg();
 
@@ -514,7 +664,7 @@ var Games = (Games || {});
      */
     function _setSolved (puzzle) {
 
-        if (_isSolved(puzzle._board))
+        if (_isSolved(puzzle._board, puzzle._goal))
             puzzle._top.addClass('solved');
         else
             puzzle._top.removeClass('solved');
@@ -533,7 +683,7 @@ var Games = (Games || {});
         this._top = $('<form class="sliding-puzzle">')
             .prop('tabindex', 0)  // Required to capture keyboard events.
             .on('submit', _returnFalse)
-            .on('mousedown', 'button', this, _buttonClick)
+            .on('mousedown', 'button', this, _tileClick)
             .on('keydown',   null,     this, _keydown);
 
         /** @type {int[]} */
@@ -591,9 +741,7 @@ var Games = (Games || {});
 
             this._board = _shuffle(this);
 
-            _paint(this);
-
-            return this;
+            return _paint(this);
         },
 
         /**
@@ -638,7 +786,7 @@ var Games = (Games || {});
 
         /**
          * Gets or sets the board.
-         * @param {int[]} [board] - Array indicating where each button is on the board;
+         * @param {int[]} [board] - Array indicating where each tile is on the board;
          *        must contain dim^2, non-repeating, within-range integers.
          * @returns {(int[]|Games.SlidingPuzzle)}
          */
@@ -652,10 +800,52 @@ var Games = (Games || {});
                 // Make protective copy
                 this._board = _validBoard(this._dim, board).slice(0);
 
-                _paint(this);
+                return _paint(this);
+            }
+        },
+
+        /**
+         * Gets or sets the goal of this puzzle, the target tile layout.
+         * @param {int[]} goal
+         * @returns {(int[]|Games.SlidingPuzzle)}
+         */
+        goal: function (goal) {
+
+            if (arguments.length < 1)
+                return this._goal;
+
+            else {
+                _validBoard(this._dim, goal);
+
+                this._goal = Object.freeze(goal.slice(0));
+                _setSolved(this);
 
                 return this;
             }
+        },
+
+        /**
+         * Shuffles the tiles.
+         * @returns {Games.SlidingPuzzle}
+         */
+        shuffle: function () {
+
+            this._board = _shuffle(this);
+            return _paint(this);
+        },
+
+        /**
+         * Solves the puzzle, giving feedback via animation.
+         * @returns {Games.SlidingPuzzle}
+         */
+        solve: function () {
+
+            var solution = _solvePuzzle(this);
+
+            console.log(solution);
+            // TODO animate it too.
+
+            return this;
         }
     };
     
