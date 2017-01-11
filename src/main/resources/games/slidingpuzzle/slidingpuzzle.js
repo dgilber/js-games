@@ -193,8 +193,6 @@ var Games = (Games || {});
      */
     function _solveBoard (board, goal) {
 
-        // FIXME - this is way too slow, effectively not working.
-
         var dim      = _boardDim(board),
             solution = [];
 
@@ -202,7 +200,7 @@ var Games = (Games || {});
 
             var step = goal.slice(0, g + 1);
 
-            var path    = [],
+            var path    = {},
                 actions = [],
                 wins    = [];
 
@@ -212,10 +210,14 @@ var Games = (Games || {});
             if (win === null)
                 return null;  // We failed, back to the drawing board!
 
+            console.log("Step %d/%d: [%s]", g + 1, goal.length, win.join(','));
+
             ArrayUtils.pushAll(solution, win);
 
             board = _play(board, win);
         }
+
+        console.log("Solution has [%d] steps", solution.length);
 
         return solution;
     }
@@ -228,25 +230,25 @@ var Games = (Games || {});
      * @param {int} dim - Board dimension.
      * @param {int[]} goal - Goal to achieve.
      * @param {int[]} actions - Tiles (indices) moved so far.
-     * @param {string[]} path - List of serialized boards that have lead us here.
+     * @param {Object.<string, *>} path - Hash of serialized boards that have lead us here.
      * @param {int[][]} wins - List of winning scenarios encountered on this recursive journey.
      * @private
      */
     function _tryAll (board, dim, goal, actions, path, wins) {
 
         if (actions.length > 50)
-            return;  // Prevent stack-overflow error.
+            return;  // TODO - not the right way to prevent stack-overflow error.
 
         if (_isSolved(board, goal)) {
-            wins.push(actions);
+            wins.push(actions.slice(0));
             return;
         }
 
         var serialized = _serializeBoard(board);
-        if (_indexOf(serialized, path) >= 0)
+        if (path.hasOwnProperty(serialized))
             return;  // Prevent infinite loop
 
-        path.push(serialized);
+        path[serialized] = serialized;
 
         var options = _getMovableIndices(board, dim);
 
@@ -265,7 +267,8 @@ var Games = (Games || {});
             );
             actions.pop();
         }
-        path.pop();
+
+        // delete path[serialized]
     }
 
     /**
@@ -842,7 +845,9 @@ var Games = (Games || {});
 
             var solution = _solvePuzzle(this);
 
-            console.log(solution);
+            if (solution === null)
+                alert("Failed to resolve the puzzle.");
+
             // TODO animate it too.
 
             return this;
