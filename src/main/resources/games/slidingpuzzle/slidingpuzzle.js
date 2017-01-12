@@ -175,39 +175,25 @@ var Games = (Games || {});
     }
 
     /**
-     * Solves the puzzle with visual feedback.
-     * @param {Games.SlidingPuzzle} puzzle
-     * @private
-     */
-    function _solvePuzzle (puzzle) {
-        return _solveBoard(puzzle._board, puzzle._goal);
-    }
-
-    /**
-     * Deprecated, use `_solveBoard2`.
-     *
      * Solves the board. This method modifies the given `board` argument.
      * @param {int[]} board - Board to solve.
      * @param {int[]} goal - Desired board layout.
+     * @param {int} dim - Board dimensions.
      * @returns {?(int[])} Solution to the puzzle, given as a list of index positions within
      *           `board` to be moved, in that order.  May be null, but really shouldn't.
      * @private
      * @deprecated
      */
-    function _solveBoard (board, goal) {
+    function _solveBoard1 (board, goal, dim) {
 
-        var dim      = _boardDim(board),
-            solution = [];
+        var solution = [];
 
         for (var g = 0; g < goal.length; g++) {
 
-            var step = goal.slice(0, g + 1);
+            var step = goal.slice(0, g + 1),
+                wins = [];
 
-            var path    = {},
-                actions = [],
-                wins    = [];
-
-            _tryAll(board, dim, step, actions, path, wins);
+            _tryAll(board, dim, step, [], [], wins);
 
             var win = _mostEfficient(wins);
             if (win === null)
@@ -220,8 +206,6 @@ var Games = (Games || {});
             board = _play(board, win);
         }
 
-        console.log("Solution has [%d] steps", solution.length);
-
         return solution;
     }
 
@@ -233,11 +217,11 @@ var Games = (Games || {});
      * @param {int} dim - Board dimension.
      * @param {int[]} goal - Goal to achieve.
      * @param {int[]} actions - Tiles (indices) moved so far.
-     * @param {Object.<string, *>} path - Hash of serialized boards that have lead us here.
+     * @param {Object.<string, *>} footprint - Hash of serialized boards that have lead us here.
      * @param {int[][]} wins - List of winning scenarios encountered on this recursive journey.
      * @private
      */
-    function _tryAll (board, dim, goal, actions, path, wins) {
+    function _tryAll (board, dim, goal, actions, footprint, wins) {
 
         if (actions.length > 50)
             return;  // TODO - Is there a better way to prevent stack-overflow error?
@@ -248,15 +232,12 @@ var Games = (Games || {});
         }
 
         var serialized = _serializeBoard(board);
-        if (path.hasOwnProperty(serialized))
+        if (footprint.hasOwnProperty(serialized))
             return;  // Prevent infinite loop
 
-        path[serialized] = serialized;
+        footprint[serialized] = serialized;
 
         var options = _getMovableIndices(board, dim);
-
-        // TODO - First try to find a solution without undoing any of the previous work.
-
 
         for (var i = 0, len = options.length; i < len; i++) {
 
@@ -268,13 +249,13 @@ var Games = (Games || {});
                 dim,
                 goal,
                 actions,
-                path,
+                footprint,
                 wins
             );
             actions.pop();
         }
 
-        // delete path[serialized]
+        // delete footprint[serialized]
     }
 
     /**
@@ -296,6 +277,175 @@ var Games = (Games || {});
         });
 
         return mostEfficient;
+    }
+
+    /**
+     * Solves the board. This method modifies the given `board` argument.
+     *
+     * This method is smarter than _solveBoard1:
+     * <ul>
+     *     <li> it advances through the goal more efficiently; </li>
+     *     <li> it avoids moving tiles that are already in their desired position. </li>
+     * </ul>
+     *
+     * @param {int[]} board - Board to solve.
+     * @param {int[]} goal - Desired board layout.
+     * @param {int} dim - Board dimensions.
+     * @returns {?(int[])} Solution to the puzzle, given as a list of index positions within
+     *           `board` to be moved, in that order.  May be null, but really shouldn't.
+     * @private
+     * @deprecated
+     */
+    function _solveBoard2 (board, goal, dim) {
+
+        var solution  = [],
+            prevSteps = [[]],
+            steps     = _breakGoalIntoSteps(goal, dim);
+
+        for (var i = 0; i < steps.length; i++) {
+
+            var step     = steps[i],
+                avoidIdx = prevSteps.length - 1,
+                win      = _digIn(board, dim, step, {}, _.indexBy(prevSteps[avoidIdx]));
+
+            // If we didn't find a solution, allow some previouslly placed tiles to move,
+            // slowly expanding the area where tiles are allowed to move.
+            while (win === null && avoidIdx > 0)
+                win = _digIn(board, dim, step, {}, _.indexBy(prevSteps[--avoidIdx]));
+
+            if (win === null)
+                return null;  // We failed, back to the drawing board!
+
+            console.log("Step %d/%d: [%s]", i + 1, steps.length, win.join(','));
+
+            ArrayUtils.pushAll(solution, win);
+
+            board = _play(board, win);
+        }
+
+        return solution;
+    }
+
+    /**
+     * Digs into the tree of possibilities, one level at a time, stopping as soon
+     * as a solution is found.
+     * @param {int[]} board - Board as it stands right now.
+     * @param {int} dim - Board dimension.
+     * @param {int[]} goal - Goal to achieve.
+     * @param {Object.<string, *>} footprint - Hash of serialized boards that have lead us here.
+     * @param {Object.<int, *>} avoid - Tile IDs to avoid moving.
+     * @returns {?(int[])} Solution to reach the given goal, or null if a solution is not found.
+     * @private
+     */
+    function _digIn (board, dim, goal, footprint, avoid) {
+
+        if (_isSolved(board, goal))
+            return [];  // Tiles are already where we want them, nothing to do.
+
+        var nodes = _getNodes(null, board, dim, avoid, footprint),
+            win   = _getSolutionPath(nodes, goal);
+
+        while (   win === null
+               && nodes.length > 0 ) {  // Avoid infinite loop when all paths have been exhausted.
+
+            var nextNodes = [];
+            _.each(nodes, function (node) {
+                ArrayUtils.pushAll(nextNodes, _getNodes(node, node.board, dim, avoid, footprint));
+            });
+
+            nodes = nextNodes;
+            win = _getSolutionPath(nodes, goal);
+        }
+
+        return win;
+    }
+
+    /**
+     *
+     * @param {?_Node} parent - Parent node, if any.
+     * @param {int[]} board - Board as it stands right now.
+     * @param {int} dim - Board dimension.
+     * @param {Object.<int, *>} avoid - Tile IDs to avoid moving.
+     * @param {Object.<string, *>} footprint - Hash of serialized boards that have lead us here.
+     * @returns {_Node[]} Possible directions from here.
+     * @private
+     */
+    function _getNodes (parent, board, dim, avoid, footprint) {
+
+        var movables = _getMovableIndices(board, dim),
+            free     = _indexOf(0, board),
+            nodes    = [];
+
+        for (var i = 0, len = movables.length; i < len; i++) {
+
+            var movable = movables[i];
+            if (!_.has(avoid, movable)) {
+
+                var newBoard = _switchPosition(board.slice(0), movable, free),
+                    serialized = _serializeBoard(newBoard);
+
+                if (!_.has(footprint, serialized)) {
+                    footprint[serialized] = serialized;
+                    nodes.push(new _Node(parent, newBoard, movable));
+                }
+            }
+        }
+
+        return nodes;
+    }
+
+    /**
+     *
+     * @param {_Node[]} nodes
+     * @param {int[]} goal
+     * @returns {?int[]} List of movements that resolve to the goal, may be null.
+     * @private
+     */
+    function _getSolutionPath (nodes, goal) {
+
+        for (var i = 0, len = nodes.length; i < len; i++) {
+            var node = nodes[i];
+            if (_isSolved(node.board, goal)) {
+
+                var path   = [node.action],
+                    parent = node.parent;
+
+                while (parent !== null) {
+                    path.unshift(parent.action);
+                    parent = parent.parent;
+                }
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Breaks the end goal into incremental steps to achieve.
+     * @param {int[]} goal
+     * @returns {int[][]} Increment steps.
+     * @private
+     */
+    function _breakGoalIntoSteps (goal, dim) {
+
+        var steps = [];
+        for (var g = 0; g < goal.length; g++) {
+
+            // It's impossible to place the last tile of a row by itself; each row
+            // must be completed by placing the last two consecutive tiles in one move.
+            // Therefore we break our goals in steps, as follows:
+            // * board dim 3: 1, 2-3, 4, 5-6, 7, 8-0
+            // * board dim 4: 1, 2, 3-4, 5, 6, 7-8, 9, 10, 11-12, 13, 14, 15-0
+            // * Etc.
+
+            if (g % 3 === dim - 2)
+                g++;
+
+            steps.push(goal.slice(0, g + 1));
+        }
+
+        return steps;
     }
 
     /**
@@ -878,16 +1028,31 @@ var Games = (Games || {});
 
         /**
          * Solves the puzzle, giving feedback via animation.
+         * @param {int} [version=2] - Resolver version to use, 1 or 2.
          * @returns {Games.SlidingPuzzle}
          */
-        solve: function () {
+        solve: function (version) {
 
-            var solution = _solvePuzzle(this);
+            var resolver = _solveBoard2;
+            if (arguments.length > 0) {
+                requireIntBetween(version, 1, 2, "version");
+                switch (version) {
+                    case 1: resolver = _solveBoard1; break;
+                    case 2: resolver = _solveBoard2; break;
+                }
+            }
+
+            var start = Date.now();
+            var solution = resolver(this._board, this._goal, this._dim);
 
             if (solution === null)
                 alert("Failed to resolve the puzzle.");
 
             else {
+
+                console.log( "Solution has [%d] steps, found in [%d] ms.",
+                             solution.length, Date.now() - start );
+
                 ArrayUtils.pushAll(this._playing, solution);
 
                 if (solution.length > 0)
@@ -900,6 +1065,23 @@ var Games = (Games || {});
     
     Object.freeze(SlidingPuzzle);
     Object.freeze(SlidingPuzzle.prototype);
+
+    /* *************************************************************
+     * Private class: _Node
+     * ************************************************************* */
+    /**
+     *
+     * @param {?_Node} parent  Parent node, if any.
+     * @param {int[]} board - Resulting board.
+     * @param {int} action - Tile index that moved to end up with `board`.
+     * @private
+     */
+    function _Node (parent, board, action) {
+        this.parent = parent;
+        this.board = board;
+        this.action = action;
+    }
+
     
     /* *************************************************************
      * Public object

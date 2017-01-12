@@ -97,6 +97,8 @@
         speed = $('#speed'),
         goal  = $('#goal'),
         state = $('#state'),
+
+        isRiskAck = false,
         initialLayout;
 
     function toInt (s) {
@@ -146,12 +148,14 @@
         game.shuffle().focus();
     });
     $('#resolver').on('click', function () {
-        if (toInt(dim.val()) > 3)
-            alert(  "Resolving a "
-                  + dim.find('option:checked').text()
-                  + " puzzle is not available yet." );
-        else
-            game.solve();
+        var isSafe = (toInt(dim.val()) <= 3);
+
+        if (!isSafe && !isRiskAck)
+            isRiskAck = confirm(  "UNSTABLE FEATURE\n========================\n\n"
+                                + "Resolving a puzzle bigger than 3x3 can crash your web page. "
+                                + "Continue only if you accept the risk.\n\nContinue?" );
+        if (isSafe || isRiskAck)
+            game.solve(2);
 
         game.focus();
     });

@@ -106,6 +106,23 @@
         },
 
         /**
+         * Returns the last item from the array.
+         * @param {Object[]} array
+         * @returns {*}
+         * @throws Error - If `array` is not an array or is empty.
+         */
+        last: function (array) {
+
+            _requireArrayLike(array, "array");
+
+            var len = array.length;
+            if (len === 0)
+                throw new Error("array is empty, cannot return last item");
+
+            return array[len - 1];
+        },
+
+        /**
          * @param {Array} array
          * @param {Array} firstItems
          * @returns {boolean} Whether the first items in `array` match those found in `firstItems`,
