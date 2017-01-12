@@ -146,7 +146,14 @@
         game.shuffle().focus();
     });
     $('#resolver').on('click', function () {
-        game.solve().focus();
+        if (toInt(dim.val()) > 3)
+            alert(  "Resolving a "
+                  + dim.find('option:checked').text()
+                  + " puzzle is not available yet." );
+        else
+            game.solve();
+
+        game.focus();
     });
 
     showGoal();

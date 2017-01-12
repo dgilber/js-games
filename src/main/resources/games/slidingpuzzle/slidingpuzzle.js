@@ -184,12 +184,15 @@ var Games = (Games || {});
     }
 
     /**
+     * Deprecated, use `_solveBoard2`.
+     *
      * Solves the board. This method modifies the given `board` argument.
      * @param {int[]} board - Board to solve.
      * @param {int[]} goal - Desired board layout.
      * @returns {?(int[])} Solution to the puzzle, given as a list of index positions within
      *           `board` to be moved, in that order.  May be null, but really shouldn't.
      * @private
+     * @deprecated
      */
     function _solveBoard (board, goal) {
 
@@ -237,7 +240,7 @@ var Games = (Games || {});
     function _tryAll (board, dim, goal, actions, path, wins) {
 
         if (actions.length > 50)
-            return;  // TODO - not the right way to prevent stack-overflow error.
+            return;  // TODO - Is there a better way to prevent stack-overflow error?
 
         if (_isSolved(board, goal)) {
             wins.push(actions.slice(0));
@@ -251,6 +254,9 @@ var Games = (Games || {});
         path[serialized] = serialized;
 
         var options = _getMovableIndices(board, dim);
+
+        // TODO - First try to find a solution without undoing any of the previous work.
+
 
         for (var i = 0, len = options.length; i < len; i++) {
 
@@ -545,7 +551,7 @@ var Games = (Games || {});
                 me   = _indexById(id, puzzle);
 
             // Move the tile the the free spot.
-            _switchPosition(puzzle._board, free, me)
+            _switchPosition(puzzle._board, free, me);
 
             _animateTileTo(puzzle, id, free, puzzle._animSpeed, _.noop);
 
@@ -674,6 +680,32 @@ var Games = (Games || {});
     }
 
     /**
+     * Starts to play the given action sequence.
+     * @param {int[]} sequence - List of tile index positions to move, in order.
+     * @param {Games.SlidingPuzzle} puzzle
+     * @private
+     */
+    function _animatePuzzle (puzzle) {
+
+        var animateNextTile = function () {
+
+            var playing = puzzle._playing,
+                board   = puzzle._board;
+
+            if (playing.length > 0) {
+
+                var meIdx   = playing.shift(),
+                    meId    = board[meIdx],
+                    freeIdx = _indexOf(0, board);
+                _switchPosition(board, freeIdx, meIdx);
+                _animateTileTo(puzzle, meId, freeIdx, puzzle._animSpeed, animateNextTile);
+            }
+        }
+
+        animateNextTile();
+    }
+
+    /**
      * @constructor
      * @name Games.SlidingPuzzle
      */
@@ -703,6 +735,13 @@ var Games = (Games || {});
 
         /** @type {function} */
         this._chg = _.noop;
+
+        /**
+         * A list of movement being animated.
+         * @type {int[]}
+         * @private
+         */
+        this._playing = [];
 
         _paint(this);
     }
@@ -848,7 +887,12 @@ var Games = (Games || {});
             if (solution === null)
                 alert("Failed to resolve the puzzle.");
 
-            // TODO animate it too.
+            else {
+                ArrayUtils.pushAll(this._playing, solution);
+
+                if (solution.length > 0)
+                    _animatePuzzle(this);
+            }
 
             return this;
         }
